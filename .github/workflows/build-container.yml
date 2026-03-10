@@ -9,31 +9,41 @@ on:
   workflow_dispatch:
 
 env:
-  CONTAINER_REGISTRY: docker.io
-  CONTAINER_REGISTRY_USER: ${{ secrets.CONTAINER_REGISTRY_USER }}
-  CONTAINER_REGISTRY_PASSWORD: ${{ secrets.CONTAINER_REGISTRY_PASSWORD }}
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build:
-    environment: dockerhub
-
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+
     steps:
-    - uses: actions/checkout@v2
+    - name: Checkout repository
+      uses: actions/checkout@v5
 
-    - name: Build container
-      run: ./scripts/container.sh build
-
-    - name: Test container
-      run: ./scripts/container.sh autotest
-
-    - name: Login to registroy
-      uses: redhat-actions/podman-login@v1
+    - name: Log in to registry
+      uses: docker/login-action@v4
       with:
-        registry: ${{ env.CONTAINER_REGISTRY }}
-        username: ${{ env.CONTAINER_REGISTRY_USER }}
-        password: ${{ env.CONTAINER_REGISTRY_PASSWORD }}
+        registry: ghcr.io
+        username: ${{ $github.actor }}
+        password: ${{ $secrets.GITHUB_TOKEN }}
 
-    - name: Push container
-      run: ./scripts/container.sh push
+    - name: Extract metadata (tags, labels) for Docker
+      id: meta
+      uses: docker/metadata-action@5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+    - name: Build and push Docker image
+      id: push
+      uses: docker/build-push-action@6
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
