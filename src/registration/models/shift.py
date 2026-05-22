@@ -25,7 +25,7 @@ class Shift(models.Model):
     """
 
     class Meta:
-        ordering = ["job", "begin", "end"]
+        ordering = ["job", "begin", "end", "name", "id"]
 
     job = models.ForeignKey(
         "Job",
