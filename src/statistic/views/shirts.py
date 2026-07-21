@@ -58,8 +58,12 @@ def shirts(request, event_url_name):
         # event wide
         if has_access(request.user, event, ACCESS_STATISTICS_VIEW):
             # shirt sizes
-            total_shirts_query = event.helper_set.values("shirt").annotate(num=Count("shirt")).order_by()
-            coordinator_shirts_query = event.all_coordinators.values("shirt").annotate(num=Count("shirt")).order_by()
+            # the Count against id together with distinct=True counts each helper only once but does not accumulate shirt-sizes
+            # this is technically only necessary for coordinator shirts, but for consistency it is done for both queries
+            total_shirts_query = event.helper_set.values("shirt").annotate(num=Count("id", distinct=True)).order_by()
+            coordinator_shirts_query = (
+                event.all_coordinators.values("shirt").annotate(num=Count("id", distinct=True)).order_by()
+            )
 
             # total numbers (iterate over all sizes in correct order)
             for size, name in shirt_choices:
