@@ -1,4 +1,4 @@
-![Helfertool](https://raw.githubusercontent.com/helfertool/graphics/master/logo/logo_with_text.png)
+![Helfertool](https://raw.githubusercontent.com/helfertool/graphics/main/logo/logo_with_text_green.png)
 
 Helfertool is a Python3 and Django based tool that allows to manage the
 volunteers or staff for an event. See <https://www.helfertool.org> for more information.
