@@ -136,7 +136,10 @@ def xlsx(buffer, event, jobs, date, include_sensitive):
             if date and shift.date() != date:
                 continue
 
-            worksheet.merge_range(row.next(), 0, row.get(), last_column, shift.time(), bold)
+            shift_text = shift.time()
+            if shift.name != "":
+                shift_text += f" ({shift.name})"
+            worksheet.merge_range(row.next(), 0, row.get(), last_column, shift_text, bold)
             add_helpers(worksheet, row, column, event, job, shift.helper_set.all(), multiple_shifts, include_sensitive)
 
     # close xlsx

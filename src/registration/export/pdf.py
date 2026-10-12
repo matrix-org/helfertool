@@ -95,7 +95,10 @@ def pdf(buffer, event, jobs, date):
             if date and shift.date() != date:
                 continue
 
-            heading = h2(shift.time_with_day())
+            heading_text = shift.time_with_day()
+            if shift.name != "":
+                heading_text += f" ({shift.name})"
+            heading = h2(heading_text)
             elements.append(heading)
 
             if shift.helper_set.count() > 0:
