@@ -33,7 +33,7 @@ def send_mail(request, event_url_name):
 
     if form.is_valid():
         try:
-            form.send_mail()
+            form.send_mail(request)
             messages.success(request, _("Mail was sent successfully"))
 
             logger.info(
@@ -44,7 +44,7 @@ def send_mail(request, event_url_name):
                     "subject": form.cleaned_data["subject"],
                 },
             )
-        except (SMTPException, ConnectionError, MailFormError) as e:
+        except (SMTPException, OSError, MailFormError) as e:
             if isinstance(e, MailFormError):
                 # exceptions of type MailFormError are displayed to the user, other exceptions not
                 messages.error(request, e)

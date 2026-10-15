@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-23 19:42+0100\n"
+"POT-Creation-Date: 2026-10-12 20:51+0200\n"
 "PO-Revision-Date: \n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -18,69 +18,108 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: Poedit 3.1.1\n"
 
-#: mail/forms.py:46 mail/models.py:119
+#: mail/forms.py:50 mail/models.py:119
 msgid "All helpers and coordinators"
 msgstr "Alle Helfer:innen und Koordinator:innen"
 
-#: mail/forms.py:47 mail/models.py:123
+#: mail/forms.py:51 mail/models.py:123
 msgid "All coordinators"
 msgstr "Alle Koordinator:innen"
 
-#: mail/forms.py:49
+#: mail/forms.py:53
 msgid "General"
 msgstr "Allgemein"
 
-#: mail/forms.py:56 mail/models.py:126
+#: mail/forms.py:60 mail/models.py:126
 #, python-brace-format
 msgid "{}, Helpers and coordinators"
 msgstr "{}, Helfer:innen und Koordinator:innen"
 
-#: mail/forms.py:61 mail/models.py:129
+#: mail/forms.py:65 mail/models.py:129
 #, python-brace-format
 msgid "{}, Coordinators"
 msgstr "{}, Koordinator:innen"
 
-#: mail/forms.py:79
+#: mail/forms.py:83
 msgid "Custom"
 msgstr "Andere Adresse"
 
-#: mail/forms.py:84
+#: mail/forms.py:88
 msgid "Receivers"
 msgstr "Empfänger:innen"
 
-#: mail/forms.py:90 mail/templates/mail/show_mail.html:33
+#: mail/forms.py:94 mail/templates/mail/show_mail.html:33
 msgid "Reply to"
 msgstr "Antwort an"
 
-#: mail/forms.py:95
+#: mail/forms.py:99
 msgid "Custom reply to"
 msgstr "Andere Antwortadresse"
 
-#: mail/forms.py:96
+#: mail/forms.py:100
 msgid "Only used if \"Custom\" is selected above."
 msgstr "Wird nur benutzt, wenn \"Andere Adresse\" oben ausgewählt ist."
 
-#: mail/forms.py:101 mail/templates/mail/show_mail.html:29
+#: mail/forms.py:105 mail/templates/mail/show_mail.html:29
 msgid "CC"
 msgstr "CC"
 
-#: mail/forms.py:106
+#: mail/forms.py:110
 msgid "Subject"
 msgstr "Betreff"
 
 #: mail/forms.py:112
+msgid ""
+"Django template variables and filters are supported, for example "
+"{{ helper_name }}."
+msgstr ""
+"Django-Template-Variablen und -Filter werden unterstützt, zum Beispiel "
+"{{ helper_name }}."
+
+#: mail/forms.py:117
 msgid "Text"
 msgstr "Text"
 
 #: mail/forms.py:119
+msgid ""
+"Available variables: {{ helper_name }}, {{ helper_url }}, and helper_shifts "
+"(all assigned shifts, ordered chronologically). Each shift has job, name, "
+"begin, and end fields. Example: {% for shift in helper_shifts %}"
+"{{ shift.job }}: {{ shift.begin|date:\"d.m.Y H:i\" }}{% endfor %}. Reply-to "
+"and CC receive a copy for every helper, including their personal link."
+msgstr ""
+"Verfügbare Variablen: {{ helper_name }}, {{ helper_url }} und helper_shifts "
+"(alle zugewiesenen Schichten, chronologisch sortiert). Jede Schicht verfügt "
+"über die Felder „Aufgabe“, „Name“, „Beginn“ und „Ende“. Beispiel: "
+"{% for shift in helper_shifts %} {{ shift.job }}: "
+"{{ shift.begin|date:\"d.m.Y H:i\" }}{% endfor %}. Die Empfänger der Felder "
+"„Antwort an“ und „CC“ erhalten für jeden Helfer eine Kopie, einschließlich "
+"dessen persönlichem Link."
+
+#: mail/forms.py:139
+#, python-format
+msgid "Invalid mail template: %(error)s"
+msgstr "Ungültige E-Mail-Vorlage: %(error)s"
+
+#: mail/forms.py:142
 msgid "You must specify a custom reply to address."
 msgstr "Du musst eine andere Antwortadresse angeben."
 
-#: mail/forms.py:123 mail/forms.py:173
+#: mail/forms.py:146 mail/forms.py:196
 msgid "There are no helpers or coordinators that would receive this mail."
 msgstr ""
 "Es gibt keine Helfer:innen oder Koordinator:innen, die diese E-Mail "
 "empfangen würden."
+
+#: mail/forms.py:240
+msgid "Mail subjects must not contain line breaks."
+msgstr "E-Mail-Betreffzeilen dürfen keine Zeilenumbrüche enthalten."
+
+#: mail/forms.py:249
+msgid ""
+"Could not render the mail template. Please check its variables and filters."
+msgstr ""
+"Die E-Mail-Vorlage konnte nicht gerendert werden. Bitte überprüfen Sie die Variablen und Filter der Vorlage."
 
 #: mail/templates/mail/list_mails.html:5
 msgid "All mails"

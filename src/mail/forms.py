@@ -1,6 +1,9 @@
 from django import forms
 from django.conf import settings
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMessage, get_connection
+from django.template import Context, Engine, TemplateSyntaxError
+from django.urls import reverse
+from django.utils.timezone import localtime
 from django.utils.translation import gettext_lazy as _
 
 from django_select2.forms import Select2MultipleWidget
@@ -10,6 +13,7 @@ from .models import SentMail, MailDelivery
 from .tracking import new_tracking_event
 
 from registration.permissions import has_access, ACCESS_MAILS_SEND
+from registration.models import HelperShift
 
 
 class MailFormError(Exception):
@@ -105,15 +109,34 @@ class MailForm(forms.Form):
         self.fields["subject"] = forms.CharField(
             label=_("Subject"),
             max_length=200,
+            help_text=_("Django template variables and filters are supported, for example {{ helper_name }}."),
         )
 
         self.fields["text"] = forms.CharField(
             widget=forms.Textarea,
             label=_("Text"),
+            help_text=_(
+                "Available variables: {{ helper_name }}, {{ helper_url }}, and helper_shifts "
+                "(all assigned shifts, ordered chronologically). Each shift has job, name, begin, and end fields. "
+                'Example: {% for shift in helper_shifts %}{{ shift.job }}: {{ shift.begin|date:"d.m.Y H:i" }}'
+                "{% endfor %}. Reply-to and CC receive a copy for every helper, including their personal link."
+            ),
         )
 
     def clean(self):
         cleaned_data = super(MailForm, self).clean()
+
+        engine = Engine(loaders=[], autoescape=False)
+        self.mail_templates = {}
+        self.personalized = False
+        for field in ("subject", "text"):
+            source = cleaned_data.get(field)
+            if source is not None:
+                self.personalized |= any(marker in source for marker in ("{{", "{%", "{#"))
+                try:
+                    self.mail_templates[field] = engine.from_string(source)
+                except TemplateSyntaxError as error:
+                    self.add_error(field, _("Invalid mail template: %(error)s") % {"error": str(error)})
 
         if cleaned_data.get("reply_to") == "-" and not cleaned_data.get("custom_reply_to"):
             raise forms.ValidationError(_("You must specify a custom reply to address."))
@@ -122,7 +145,7 @@ class MailForm(forms.Form):
         if not self._get_helpers():
             raise forms.ValidationError(_("There are no helpers or coordinators that would receive this mail."))
 
-    def send_mail(self):
+    def send_mail(self, request):
         # basic parameters
         subject = self.cleaned_data.get("subject")
         text = self.cleaned_data.get("text")
@@ -154,7 +177,7 @@ class MailForm(forms.Form):
         sentmail.tracking_uuid = tracking_uuid
 
         # get the helpers that should receive the mail
-        helpers = self._get_helpers(sentmail)
+        helpers = list({helper.pk: helper for helper in self._get_helpers(sentmail)}.values())
 
         # create mail delivery entry for tracking and a unique list of mail addresses
         receiver_list = []
@@ -172,25 +195,80 @@ class MailForm(forms.Form):
             sentmail.save()
             raise MailFormError(_("There are no helpers or coordinators that would receive this mail."))
 
-        # send mail now
-        mail = EmailMessage(
-            subject,
-            text,
-            settings.EMAIL_SENDER_ADDRESS,
-            [
-                reply_to,
-            ],  # to
-            receiver_list,
-            reply_to=[
-                reply_to,
-            ],
-            cc=cc,
-            headers=tracking_header,
-        )
+        try:
+            messages = []
+            if self.personalized:
+                shifts = {helper.pk: [] for helper in helpers}
+                assignments = (
+                    HelperShift.objects.filter(helper_id__in=shifts)
+                    .select_related("shift__job")
+                    .order_by("shift__begin", "shift__end", "shift_id")
+                )
+                for assignment in assignments:
+                    shift = assignment.shift
+                    shifts[assignment.helper_id].append(
+                        {
+                            "job": shift.job.name,
+                            "name": shift.name,
+                            "begin": localtime(shift.begin),
+                            "end": localtime(shift.end),
+                        }
+                    )
+                for helper in helpers:
+                    context = Context(
+                        {
+                            "helper_name": helper.full_name,
+                            "helper_url": request.build_absolute_uri(
+                                reverse("registered", args=[self.event.url_name, helper.pk])
+                            ),
+                            "helper_shifts": shifts[helper.pk],
+                        },
+                        autoescape=False,
+                    )
+                    messages.append(
+                        (
+                            self.mail_templates["subject"].render(context),
+                            self.mail_templates["text"].render(context),
+                            [helper.email],
+                        )
+                    )
+            else:
+                messages.append((subject, text, receiver_list))
+
+            # Validate every rendered subject before sending any part of the campaign.
+            if any("\n" in mail_subject or "\r" in mail_subject for mail_subject, _, _ in messages):
+                raise MailFormError(_("Mail subjects must not contain line breaks."))
+        except MailFormError:
+            sentmail.failed = True
+            sentmail.save()
+            raise
+        except Exception as error:
+            sentmail.failed = True
+            sentmail.save()
+            raise MailFormError(
+                _("Could not render the mail template. Please check its variables and filters.")
+            ) from error
 
         try:
-            mail.send(fail_silently=False)
-        except (SMTPException, ConnectionError):
+            with get_connection(fail_silently=False) as connection:
+                for mail_subject, mail_text, receivers in messages:
+                    if self.personalized:
+                        mail_to = receivers
+                    else:
+                        mail_to = [reply_to]
+                    mail = EmailMessage(
+                        mail_subject,
+                        mail_text,
+                        settings.EMAIL_SENDER_ADDRESS,
+                        mail_to,
+                        receivers,
+                        reply_to=[reply_to],
+                        cc=cc,
+                        headers=tracking_header,
+                        connection=connection,
+                    )
+                    mail.send(fail_silently=False)
+        except (SMTPException, OSError):
             sentmail.failed = True
             sentmail.save()
             raise
