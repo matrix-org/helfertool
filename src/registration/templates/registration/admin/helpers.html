@@ -4,6 +4,25 @@
 {% block content %}
     <h1>{% trans "Overview of helpers" %}</h1>
 
+    {% if event_calendar_url %}
+        <div class="mb-3">
+            <a class="btn btn-outline-primary" href="{{ event_calendar_url }}" aria-describedby="event-calendar-help">
+                <em class="far fa-calendar-alt fa-lg"></em> {% trans "Add to calendar (iCal)" %}
+            </a>
+            <div class="form-text" id="event-calendar-help">
+                {% trans "Add this URL to your calendar app to subscribe to all helper shifts. Keep it private: anyone with this link can view the names and shifts while you have access to this event." %}
+            </div>
+        </div>
+    {% endif %}
+
+    {% if user_can_export and not event.archived %}
+        <p>
+            <a href="{% url 'export_helper_list' event.url_name %}" class="btn btn-outline-primary">
+                {% icon "download" %} {% trans "Helper list (Excel)" %}
+            </a>
+        </p>
+    {% endif %}
+
     {% if not event.job_set.exists %}
         <p class="text-muted">{% trans "There are no jobs and shifts." %}</p>
     {% else %}

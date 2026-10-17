@@ -23,6 +23,7 @@ from .helper import (
     add_helper_as_coordinator,
     search_helper,
     view_helper,
+    view_helper_assignment,
     resend_mail,
 )
 from .link import links, edit_link, delete_link

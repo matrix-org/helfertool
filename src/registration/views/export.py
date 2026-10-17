@@ -1,15 +1,21 @@
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse, Http404, HttpResponseBadRequest
+from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.views.decorators.cache import never_cache
 
 from helfertool.utils import nopermission
 
 from ..decorators import archived_not_available
-from ..export.excel import xlsx
+from ..export.excel import helper_list_xlsx, xlsx
 from ..export.pdf import pdf
 from ..models import Event, Job, Shift
-from ..permissions import ACCESS_HELPER_VIEW_SENSITIVE, has_access, ACCESS_EVENT_EXPORT_HELPERS
+from ..permissions import (
+    ACCESS_HELPER_VIEW_SENSITIVE,
+    ACCESS_HELPER_INTERNAL_COMMENT_VIEW,
+    has_access,
+    ACCESS_EVENT_EXPORT_HELPERS,
+)
 from ..utils import escape_filename, get_or_404
 
 from io import BytesIO
@@ -22,9 +28,11 @@ logger = logging.getLogger("helfertool.registration")
 @login_required
 @never_cache
 @archived_not_available
-def export(request, event_url_name, filetype, job_pk=None, date=None):
+def export(request, event_url_name, filetype, job_pk=None, date=None, helper_list=False):
     # check for valid export type
     if filetype not in ["excel", "pdf"]:
+        raise Http404
+    if helper_list and (filetype != "excel" or job_pk is not None or date is not None):
         raise Http404
 
     # get event
@@ -52,6 +60,9 @@ def export(request, event_url_name, filetype, job_pk=None, date=None):
         job_for_log = None
         filename = event.name
 
+    if helper_list:
+        filename = "{} - helpers".format(filename)
+
     # parse date
     if date:
         # check if there are any shifts with this start date
@@ -75,7 +86,19 @@ def export(request, event_url_name, filetype, job_pk=None, date=None):
     if filetype == "excel":
         filename = "%s.xlsx" % filename
         content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        xlsx(buffer, event, jobs, date, include_sensitive)
+        if helper_list:
+            try:
+                helper_list_xlsx(
+                    buffer,
+                    event,
+                    include_sensitive,
+                    has_access(request.user, event, ACCESS_HELPER_INTERNAL_COMMENT_VIEW),
+                )
+            except ValidationError as error:
+                buffer.close()
+                return HttpResponseBadRequest(" ".join(error.messages), content_type="text/plain; charset=utf-8")
+        else:
+            xlsx(buffer, event, jobs, date, include_sensitive)
     elif filetype == "pdf":
         filename = "%s.pdf" % filename
         content_type = "application/pdf"
@@ -88,7 +111,7 @@ def export(request, event_url_name, filetype, job_pk=None, date=None):
             "user": request.user,
             "event": event,
             "job": job_for_log,
-            "type": filetype,
+            "type": "helper_list" if helper_list else filetype,
             "file": filename,
             "date": date.strftime("%Y-%m-%d") if date else None,
         },

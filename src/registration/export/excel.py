@@ -1,4 +1,10 @@
 from django.utils.translation import gettext as _
+from django.db.models import Count, Q, Value
+from django.db.models.functions import Coalesce
+from django.core.exceptions import ValidationError
+from django.utils import timezone
+
+from ..models import Helper
 
 import re
 import xlsxwriter
@@ -144,6 +150,70 @@ def xlsx(buffer, event, jobs, date, include_sensitive):
 
     # close xlsx
     workbook.close()
+
+
+def helper_list_xlsx(buffer, event, include_sensitive, include_internal):
+    """Export business helper fields once per person, without assignment details."""
+    fields = [
+        "firstname",
+        "surname",
+        "email",
+        "mxid",
+        "phone",
+        "comment",
+        "internal_comment",
+        "shirt",
+        "nutrition",
+        "infection_instruction",
+        "timestamp",
+        "validated",
+        "timestamp_validated",
+        "mail_failed",
+        "privacy_statement",
+    ]
+    if not include_sensitive:
+        fields.remove("phone")
+    if not include_internal:
+        fields.remove("internal_comment")
+
+    labels = {"timestamp_validated": _("Validation time"), "mail_failed": _("Mail delivery error")}
+    headers = [str(labels.get(field, Helper._meta.get_field(field).verbose_name)) for field in fields]
+    headers.extend([_("Registered shifts"), _("Coordinator assignments"), _("Buy a T-shirt for helper")])
+    helpers = event.helper_set.annotate(
+        registered_shifts=Count("shifts", filter=Q(shifts__job__event=event), distinct=True),
+        coordinator_assignments=Count("job", filter=Q(job__event=event), distinct=True),
+        buy_shirt=Coalesce("gifts__buy_shirt", Value(False)),
+    ).order_by("surname", "firstname", "pk")
+
+    with xlsxwriter.Workbook(buffer, {"strings_to_formulas": False, "strings_to_urls": False}) as workbook:
+        worksheet = workbook.add_worksheet(clean_name(_("Helpers"))[:31])
+        bold = workbook.add_format({"bold": True})
+        date_format = workbook.add_format({"num_format": "yyyy-mm-dd hh:mm:ss"})
+        worksheet.write_row(0, 0, headers, bold)
+        worksheet.set_column(0, len(headers) - 1, 24)
+        worksheet.freeze_panes(1, 0)
+        row_count = 0
+        for row_count, helper in enumerate(helpers, start=1):
+            for column, field in enumerate(fields):
+                value = getattr(helper, field)
+                if field in ["shirt", "nutrition", "infection_instruction"]:
+                    value = getattr(helper, "get_{}_display".format(field))()
+                if field in ["timestamp", "timestamp_validated"] and value is not None:
+                    worksheet.write_datetime(
+                        row_count, column, timezone.localtime(value).replace(tzinfo=None), date_format
+                    )
+                elif isinstance(value, str):
+                    if len(value) > 32767:
+                        raise ValidationError(
+                            _("Cannot export: a helper field exceeds Excel's limit of 32,767 characters per cell.")
+                        )
+                    worksheet.write_string(row_count, column, value)
+                else:
+                    worksheet.write(row_count, column, value)
+            worksheet.write_number(row_count, len(fields), helper.registered_shifts)
+            worksheet.write_number(row_count, len(fields) + 1, helper.coordinator_assignments)
+            worksheet.write_boolean(row_count, len(fields) + 2, helper.buy_shirt)
+        worksheet.autofilter(0, 0, row_count, len(headers) - 1)
 
 
 def add_helpers(worksheet, row, column, event, job, helpers, multiple_shifts_format, include_sensitive):

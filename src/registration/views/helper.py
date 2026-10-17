@@ -11,7 +11,8 @@ from helfertool.utils import nopermission
 from prerequisites.forms import HelperPrerequisiteForm
 
 from ..utils import get_or_404
-from ..models import Event, Shift
+from ..feeds import event_feed_url
+from ..models import Event, HelperShift, Shift
 from ..forms import (
     HelperForm,
     HelperDeleteForm,
@@ -69,7 +70,12 @@ def helpers(request, event_url_name):
     )
 
     # overview over jobs
-    context = {"event": event, "days": days, "user_can_export": user_can_export}
+    context = {
+        "event": event,
+        "days": days,
+        "user_can_export": user_can_export,
+        "event_calendar_url": event_feed_url(request, event),
+    }
     return render(request, "registration/admin/helpers.html", context)
 
 
@@ -94,6 +100,18 @@ def helpers_for_job(request, event_url_name, job_pk):
         "user_manages_presence": user_manages_presence,
     }
     return render(request, "registration/admin/helpers_for_job.html", context)
+
+
+@login_required
+@never_cache
+def view_helper_assignment(request, event_url_name, assignment_pk):
+    assignment = get_object_or_404(
+        HelperShift,
+        pk=assignment_pk,
+        helper__event__url_name=event_url_name,
+        shift__job__event__url_name=event_url_name,
+    )
+    return view_helper(request, event_url_name, assignment.helper_id)
 
 
 @login_required

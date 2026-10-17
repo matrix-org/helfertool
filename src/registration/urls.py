@@ -2,7 +2,7 @@ from django.urls import path
 from django.views.generic import TemplateView
 
 from . import views
-from .feeds import HelperFeed
+from .feeds import EventFeed, HelperFeed
 
 urlpatterns = [
     path("", views.index, name="index"),
@@ -25,6 +25,7 @@ urlpatterns = [
         name="validate",
     ),
     path("<slug:event_url_name>/ical/<uuid:helper_pk>/", HelperFeed(), name="ical"),
+    path("<slug:event_url_name>/ical/all/", EventFeed(), name="event_ical"),
     path(
         "<slug:event_url_name>/update/<uuid:helper_pk>/",
         views.update_personal,
@@ -86,6 +87,11 @@ urlpatterns = [
     ),
     path("<slug:event_url_name>/helpers/search/", views.search_helper, name="search_helper"),
     path(
+        "<slug:event_url_name>/helpers/assignment/<int:assignment_pk>/",
+        views.view_helper_assignment,
+        name="view_helper_assignment",
+    ),
+    path(
         "<slug:event_url_name>/helpers/<uuid:helper_pk>/",
         views.view_helper,
         name="view_helper",
@@ -133,6 +139,12 @@ urlpatterns = [
         name="resend_mail",
     ),
     # export
+    path(
+        "<slug:event_url_name>/export/excel/helpers/",
+        views.export,
+        {"filetype": "excel", "helper_list": True},
+        name="export_helper_list",
+    ),
     path("<slug:event_url_name>/export/<filetype>/all/", views.export, name="export"),
     path(
         "<slug:event_url_name>/export/<filetype>/all/<date:date>/",
