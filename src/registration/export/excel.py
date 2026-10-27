@@ -178,11 +178,19 @@ def helper_list_xlsx(buffer, event, include_sensitive, include_internal):
 
     labels = {"timestamp_validated": _("Validation time"), "mail_failed": _("Mail delivery error")}
     headers = [str(labels.get(field, Helper._meta.get_field(field).verbose_name)) for field in fields]
-    headers.extend([_("Registered shifts"), _("Coordinator assignments"), _("Buy a T-shirt for helper")])
+    headers.extend(
+        [
+            _("Registered shifts"),
+            _("Coordinator assignments"),
+            _("Buy a T-shirt for helper"),
+            _("Helper got her T-shirt"),
+        ]
+    )
     helpers = event.helper_set.annotate(
         registered_shifts=Count("shifts", filter=Q(shifts__job__event=event), distinct=True),
         coordinator_assignments=Count("job", filter=Q(job__event=event), distinct=True),
         buy_shirt=Coalesce("gifts__buy_shirt", Value(False)),
+        got_shirt=Coalesce("gifts__got_shirt", Value(False)),
     ).order_by("surname", "firstname", "pk")
 
     with xlsxwriter.Workbook(buffer, {"strings_to_formulas": False, "strings_to_urls": False}) as workbook:
@@ -213,6 +221,7 @@ def helper_list_xlsx(buffer, event, include_sensitive, include_internal):
             worksheet.write_number(row_count, len(fields), helper.registered_shifts)
             worksheet.write_number(row_count, len(fields) + 1, helper.coordinator_assignments)
             worksheet.write_boolean(row_count, len(fields) + 2, helper.buy_shirt)
+            worksheet.write_boolean(row_count, len(fields) + 3, helper.got_shirt)
         worksheet.autofilter(0, 0, row_count, len(headers) - 1)
 
 
